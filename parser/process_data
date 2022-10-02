@@ -1,0 +1,86 @@
+from dtw import *
+import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+magnew = np.load("Data_new_1/magdata.npy")
+mfinew = np.load("Data_new_1/mfidata.npy")
+Time = np.load("Data_new_1/time.npy")  
+
+t1_index = len(mag)//3
+t2_index = t1_index*2
+magshort = magnew[t1_index : t2_index]
+mfishort = mfinew[t1_index : t2_index]
+Timeshort = Time[t1_index : t2_index]    # constant measurement frequence : 1Hz   
+
+gap_max= 15*60  #no more than 15 min of time shift
+
+
+"""
+# Attempt to have a time-interval longer than a few hours
+
+def t(d, n): return 60*60*24*d+60*60*4*n
+
+def DTW_sliced(query, template, time):
+    if len(query)!=len(template) : raise NameError('Not the same length for Wind and Dscover')
+    day = 60*60*24
+    D = len(time)//day                                # nb of days in the considered time-interval
+    time_local = time[:(len(time)//day)*day]          # limit the interval to an integer number of day
+    Index1 = np.zeros(2*(len(time_local)-2*day))
+    Index2 = np.zeros(2*(len(time_local)-2*day))
+    ind = 0
+    try :
+      for d in range(1, D):
+          print(d)
+          for n in range(6):
+              print(n)
+              alignment = dtw(query[t(d,n)-60*30:t(d,n+1)+60*30], template[t(d,n)-60*30:t(d,n+1)+60*30], keep_internals=True, window_type="sakoechiba", window_args = {'window_size' : gap_max})
+              i = 0
+              print(alignment.index2)
+              print(60*30)
+              while alignment.index2[i]<60*30 : i=i+1
+              i1 = i
+              while alignment.index2[i]<60*60*4 + 60*30 : i=i+1
+              i2= i
+              for j in range(i2-i1):
+                  Index1[ind+j]=t(d,n)-60*30+alignment.index1[j+i1]
+                  Index2[ind+j]=t(d,n)-60*30+alignment.index2[j+i1]
+              ind += i2-i1
+    except IndexError : return (Index1, Index2)         
+    return (Index1, Index2)
+
+Index1, Index2 = DTW_sliced(mfishort[:3 * 60*60*24], magshort[:3 * 60*60*24], Timeshort[:3 * 60*60*24])
+
+"""
+
+day = 60*60*24
+query = magshort[60*60*4-60*30:60*60*8+60*30]
+template = mfishort[60*60*4-60*30:60*60*8+60*30]
+alignment = dtw(query, template, keep_internals=True, window_type="sakoechiba", window_args = {'window_size' : gap_max})
+
+alignment.plot(type="twoway")
+alignment.plot(type="threeway")
+plt.show()
+
+x = Timeshort[60*60*4:60*60*8]/(1000*60*60)-Timeshort[0]/(1000*60*60)
+y1 = magshort[60*60*4:60*60*8]
+y2 = np.zeros(60*60*4)
+i=0 
+while alignment.index1[i]<60*30: 
+    i+=1
+    if i%100==0 : print(i)
+for t in range(60*60*4):
+    S = 0
+    count = 0
+    while alignment.index1[i]==t+60*30:
+        S+= mfishort[60*60*4-60*30+alignment.index2[i]]
+        count+=1
+        i+=1
+        print(count)
+    y2[t]=S/count
+plt.plot(x, y1, label = 'Data from DSCOVER')    
+plt.plot(x, y2, label = 'Data from WIND')
+plt.legend()
+plt.xlabel('hour of the day')
+plt.ylabel('Bx (in nT)')
+plt.title('Magnetic field x-component data \n after time shifting')
